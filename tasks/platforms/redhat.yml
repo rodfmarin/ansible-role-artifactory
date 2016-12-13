@@ -19,3 +19,29 @@
     name: "jfrog-artifactory-{{ artifactory_type | lower }}"
     state: present
   notify: restart artifactory
+
+# JDBC
+- name: Check if JDBC is already installed
+  stat:
+    path: "{{ artifactory_database_file_title }}-bin.jar"
+  register: jdbc_installed
+
+- name: Download JDBC Connector for MySQL
+  get_url:
+    url: "{{ artifactory_database_jdbc_url }}"
+    dest: /tmp
+  retries: 3
+  when: artifactory_database_jdbc_url is defined and not jdbc_installed.stat.exists
+
+- name: Extract JDBC Connector for MySQL
+  unarchive:
+    src: "/tmp/{{ artifactory_database_file_title }}.tar.gz"
+    dest: /tmp
+    creates: "/tmp/{{ artifactory_database_file_title }}/"
+    remote_src: yes
+  when: artifactory_database_jdbc_url is defined and not jdbc_installed.stat.exists
+
+- name: Move JDBC Connector for MySQL to Tomcat lib folder
+  command: "cp /tmp/{{ artifactory_database_file_title }}/{{ artifactory_database_file_title }}-bin.jar {{ artifactory_home }}/tomcat/lib"
+  when: artifactory_database_jdbc_url is defined and not jdbc_installed.stat.exists
+  notify: restart artifactory
